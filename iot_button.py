@@ -120,14 +120,15 @@ def create_item_dynamo(event):
 
 def delete_ec2_intances():
     response_ec2 = client_ec2.describe_instances()
-    for reservation in response_ec2["Reservations"]:
-        for instance in reservation['Instances']:
-            list_instances.append(instance['InstanceId'])
-    
-    logger.info('intances to be deleted {}'.format(list_instances))
-    response = client_ec2.terminate_instances(
-        InstanceIds=list_instances
-    )
+    if not response_ec2:
+        for reservation in response_ec2["Reservations"]:
+            for instance in reservation['Instances']:
+                list_instances.append(instance['InstanceId'])
+        
+        logger.info('intances to be deleted {}'.format(list_instances))
+        response = client_ec2.terminate_instances(
+            InstanceIds=list_instances
+        )
     return list_instances
 
 # Min point of entry to the function
@@ -147,7 +148,7 @@ def lambda_handler(event, context):
 
     #Calls function to create subscription
     subscription = create_sns_subscription(topic_arn_iot['TopicArn'])
-        
+    
     #Calls function to create dynamo_table
     create_dynamo_table(event)
 
