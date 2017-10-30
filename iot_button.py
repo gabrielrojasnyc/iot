@@ -10,6 +10,8 @@ topic_name = 'aws-iot-button-sns-topic-python'
 client_sns = boto3.client('sns')
 client_dynamo = boto3.client('dynamodb')
 resource_dynamo = boto3.resource('dynamodb')
+client_ec2 = boto3.client('ec2')
+list_instances = []
 
 
 
@@ -55,12 +57,15 @@ def create_sns_subscription(topic_arn_iot):
             logger.error('Program could not set proper subscription {}'.format(err))
 
 #Send email with informatio about the IoT button
-def email_subscription(topic_arn_iot, event, item_table_count):
+def email_subscription(topic_arn_iot, event, item_table_count, delete_instances):
     item_table_count = 2000 - item_table_count
     try:
         client_sns.publish(
             TopicArn=topic_arn_iot,
-            Message="{} -- processed by Python 3.6 Lambda\nBattery voltage: {}\nThere are {} clicks left.".format(event['serialNumber'], event['batteryVoltage'], item_table_count),
+            Message="""{} -- processed by Python 3.6 Lambda
+                    Battery voltage: {}
+                    There are {} clicks left.
+                    The following instances were deleted {}""".format(event['serialNumber'], event['batteryVoltage'], item_table_count, delete_instances),
             Subject="Hello from your IoT Button {}: {}".format(event['serialNumber'], event['clickType'])
         )
         logger.info('Message sent')
@@ -113,6 +118,18 @@ def create_item_dynamo(event):
     response = resource_dynamo.Table(iot_button_count)
     return response.scan()['ScannedCount']
 
+def delete_ec2_intances():
+    response_ec2 = client_ec2.describe_instances()
+    for reservation in response_ec2["Reservations"]:
+        for instance in reservation['Instances']:
+            list_instances.append(instance['InstanceId'])
+    
+    logger.info('intances to be deleted {}'.format(list_instances))
+    response = client_ec2.terminate_instances(
+        InstanceIds=list_instances
+    )
+    return list_instances
+
 # Min point of entry to the function
 def lambda_handler(event, context):
     logger.info('Starting Function')
@@ -130,12 +147,15 @@ def lambda_handler(event, context):
 
     #Calls function to create subscription
     subscription = create_sns_subscription(topic_arn_iot['TopicArn'])
-    
+        
     #Calls function to create dynamo_table
     create_dynamo_table(event)
 
     #Add events to dynamo table to keep track of click
     item_table_count = create_item_dynamo(event)
 
+    #Delete any EC2 instances
+    delete_instances = delete_ec2_intances()
+
     #Calls function to email data
-    email_subscription(topic_arn_iot['TopicArn'], event, item_table_count)
+    email_subscription(topic_arn_iot['TopicArn'], event, item_table_count, delete_instances)
