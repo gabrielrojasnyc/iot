@@ -1,7 +1,8 @@
 import os
+import time
 import logging  #for proper function logging
 import boto3
-import time
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
