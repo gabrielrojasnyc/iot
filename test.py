@@ -19,7 +19,6 @@ lenght_list = list_1[-1]
 counter = 0 
 while counter >= lenght_list:
     list_3 = list_1.pop(counter)
-    
 
 
 
